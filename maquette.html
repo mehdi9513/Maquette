@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chambre RRR : Projet Complet</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background-color: #0f172a; font-family: 'Inter', 'Segoe UI', sans-serif;
+            color: white; touch-action: none;
+        }
+        #canvas-container {
+            width: 100%; height: 100%; display: block; position: absolute;
+            top: 0; left: 0; z-index: 1; cursor: grab;
+        }
+        #canvas-container:active { cursor: grabbing; }
+        
+        .ui-global { position: absolute; top: 0; left: 0; width: 100%; z-index: 10; padding: 20px; pointer-events: none; }
+        .header { margin-bottom: 20px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+        .header h1 { margin: 0; font-size: 24px; color: #818cf8; font-weight: bold; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: #cbd5e1; }
+        .tabs { display: flex; gap: 10px; pointer-events: auto; flex-wrap: wrap; }
+        .tab-btn {
+            background: rgba(30,41,59,0.9); color: white; border: 1px solid #334155;
+            padding: 12px 20px; border-radius: 8px; cursor: pointer; transition: 0.2s;
+            font-size: 14px; font-weight: 600; box-shadow: 0 4px 6px rgba(0,0,0,0.3); backdrop-filter: blur(5px);
+        }
+        .tab-btn:hover { background: rgba(99,102,241,0.4); transform: translateY(-2px); }
+        .tab-btn.active { background: #4f46e5; border-color: #818cf8; box-shadow: 0 0 15px rgba(79,70,229,0.5); }
+        
+        .glass-dark {
+            background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            width: 24px; height: 24px; background: #818cf8; border-radius: 50%;
+            cursor: pointer; -webkit-appearance: none; appearance: none; margin-top: -8px;
+            box-shadow: 0 0 10px rgba(129, 140, 248, 0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; background: #334155; }
+
+        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; font-weight: bold; color: #818cf8; z-index: 100; }
+    </style>
+</head>
+<body>
+
+    <!-- UI Globale (Onglets de navigation) -->
+    <div class="ui-global flex flex-col pointer-events-none">
+        <div class="header">
+            <h1>Chambre RRR : Projet Complet</h1>
+            <p class="hidden md:block"><b>Scénario :</b> Construisez tous les meubles, installez-les dans la chambre, puis consultez le bilan matériel.</p>
+        </div>
+        <div class="tabs">
+            <button class="tab-btn active" id="btn-state-1" onclick="setState(1)">ÉTAT 1 : Atelier de Construction</button>
+            <button class="tab-btn" id="btn-state-2" onclick="setState(2)">ÉTAT 2 : Mise en Place Chambre</button>
+            <button class="tab-btn" id="btn-state-3" onclick="setState(3)">ÉTAT 3 : Bilan Matériel</button>
+        </div>
+    </div>
+
+    <!-- Interface spécifique à l'Atelier (État 1) -->
+    <div id="interactive-ui" class="absolute inset-0 pointer-events-none flex flex-col md:flex-row z-10 pt-40 md:pt-32 transition-opacity duration-500">
+        
+        <!-- Boîte de dialogue et statut -->
+        <div class="flex-1 p-4 md:p-6 flex flex-col items-center">
+            <div id="status-box" class="glass-dark px-4 py-3 md:px-6 md:py-4 rounded-2xl flex items-center gap-3 transition-all duration-300 pointer-events-auto w-full max-w-lg border-2 border-transparent">
+                <span id="status-icon" class="text-2xl md:text-3xl">🛠️</span>
+                <div>
+                    <h2 class="font-bold text-white text-base md:text-lg">Établi de Montage</h2>
+                    <p id="action-text" class="text-xs md:text-sm text-slate-300">Choisissez un meuble à assembler.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Menu de construction complet -->
+        <div class="w-full md:w-80 glass-dark md:border-l border-white/10 p-4 md:p-6 pointer-events-auto flex flex-row md:flex-col gap-2 md:gap-3 overflow-x-auto md:overflow-y-auto h-auto md:h-full shrink-0 items-center md:items-stretch">
+            <h2 class="text-lg font-bold text-white border-b border-slate-600 pb-2 hidden md:block">Meubles à Construire</h2>
+            
+            <button id="btn-bureau" onclick="loadBlueprint('bureau')" class="blueprint-btn bg-slate-800 hover:bg-slate-700 border-2 border-transparent hover:border-indigo-400 rounded-xl p-2 md:p-3 text-left transition-all duration-200 flex items-center gap-2 md:gap-3 shrink-0 text-white">
+                <div class="text-2xl md:text-3xl">💻</div><div class="hidden md:block"><h3 class="font-bold">Bureau RRR</h3></div>
+            </button>
+            <button id="btn-double_case" onclick="loadBlueprint('double_case')" class="blueprint-btn bg-slate-800 hover:bg-slate-700 border-2 border-transparent hover:border-indigo-400 rounded-xl p-2 md:p-3 text-left transition-all duration-200 flex items-center gap-2 md:gap-3 shrink-0 text-white">
+                <div class="text-2xl md:text-3xl">🗄️</div><div class="hidden md:block"><h3 class="font-bold">Double Case Rangement</h3></div>
+            </button>
+            <button id="btn-lit" onclick="loadBlueprint('lit')" class="blueprint-btn bg-slate-800 hover:bg-slate-700 border-2 border-transparent hover:border-indigo-400 rounded-xl p-2 md:p-3 text-left transition-all duration-200 flex items-center gap-2 md:gap-3 shrink-0 text-white">
+                <div class="text-2xl md:text-3xl">🛏️</div><div class="hidden md:block"><h3 class="font-bold">Lit Simple OSB</h3></div>
+            </button>
+            <button id="btn-etageres_murales" onclick="loadBlueprint('etageres_murales')" class="blueprint-btn bg-slate-800 hover:bg-slate-700 border-2 border-transparent hover:border-indigo-400 rounded-xl p-2 md:p-3 text-left transition-all duration-200 flex items-center gap-2 md:gap-3 shrink-0 text-white">
+                <div class="text-2xl md:text-3xl">📐</div><div class="hidden md:block"><h3 class="font-bold">Étagères Murales (2 Rectangles)</h3></div>
+            </button>
+
+            <button onclick="resetWorkshop()" class="md:mt-auto bg-red-900/50 hover:bg-red-800/60 text-red-300 font-semibold border-2 border-red-700/50 rounded-xl p-2 md:p-3 text-center transition-all duration-200 flex items-center justify-center gap-2 shrink-0">
+                <span>🔄</span> <span class="hidden md:inline">Vider l'établi</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Curseur pour ajuster la hauteur des planches -->
+    <div id="controls-panel" class="absolute bottom-8 left-1/2 transform -translate-x-1/2 glass-dark px-6 py-4 rounded-3xl flex flex-col items-center gap-3 transition-all duration-300 opacity-0 translate-y-10 pointer-events-none z-20 border border-indigo-500/30">
+        <div class="flex items-center gap-4 w-full">
+            <span class="text-2xl text-indigo-400">↕️</span>
+            <div class="flex flex-col w-64 sm:w-80">
+                <label class="text-sm font-bold text-slate-200 flex justify-between mb-2">
+                    Élévation de la planche (cm)
+                    <span id="height-val" class="text-indigo-400 font-black">50</span>
+                </label>
+                <input type="range" id="height-slider" min="0.9" max="150" step="1" value="50" class="w-full h-2 rounded-lg appearance-none cursor-pointer touch-none">
+            </div>
+        </div>
+        <button onclick="deselectPiece()" class="mt-1 w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl transition-colors text-sm border border-slate-500">
+            Relâcher la planche
+        </button>
+    </div>
+
+    <div id="loading">Génération procédurale (OSB) en cours...</div>
+    <div id="canvas-container"></div>
+
+    <!-- Scripts Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // === INITIALISATION GLOBALE & CAMÉRA ===
+        // Déclaration au niveau le plus haut pour éviter toute ReferenceError
+        const targetCamPos = new THREE.Vector3(0, 200, 350);
+        const targetLookAt = new THREE.Vector3(0, 50, 0);
+
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2('#0f172a', 0.001);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 5000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2 - 0.02; controls.minDistance = 30; controls.maxDistance = 2000;
+
+        // Lumières
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(300, 500, 400);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048; dirLight.shadow.mapSize.height = 2048;
+        const dCam = 800;
+        dirLight.shadow.camera.left = -dCam; dirLight.shadow.camera.right = dCam;
+        dirLight.shadow.camera.top = dCam; dirLight.shadow.camera.bottom = -dCam;
+        scene.add(dirLight);
+
+        // Groupes principaux correspondant aux 3 onglets
+        const workshopGroup = new THREE.Group(); // État 1: Établi interactif
+        const roomGroupState = new THREE.Group(); // État 2: Chambre Aménagée
+        const materialGroupState = new THREE.Group(); // État 3: Bilan Matériel
+        scene.add(workshopGroup, roomGroupState, materialGroupState);
+
+        // --- MATÉRIAUX PROCÉDURAUX ---
+        function createProcTexture(baseColor, iter, w, h, drawFn) {
+            const c = document.createElement('canvas'); c.width = w; c.height = h;
+            const ctx = c.getContext('2d'); ctx.fillStyle = baseColor; ctx.fillRect(0,0,w,h);
+            for(let i=0; i<iter; i++) drawFn(ctx);
+            const tex = new THREE.CanvasTexture(c); tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping; return tex;
+        }
+        const osbTex = createProcTexture('#C8934A', 2500, 512, 512, (ctx) => {
+            ctx.fillStyle = Math.random() > 0.5 ? 'rgba(90,50,15,0.35)' : 'rgba(230,190,120,0.45)';
+            ctx.fillRect(Math.random()*512, Math.random()*512, 10+Math.random()*35, 2+Math.random()*6);
+        });
+        const osbMat = new THREE.MeshStandardMaterial({ map: osbTex, roughness: 0.95 });
+        const selectedMat = new THREE.MeshStandardMaterial({ map: osbTex, roughness: 0.6, emissive: '#818cf8', emissiveIntensity: 0.3 });
+        const ghostMat = new THREE.MeshStandardMaterial({ color: '#818cf8', transparent: true, opacity: 0.2, depthWrite: false });
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 1.0 });
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
+        const connMat = new THREE.MeshStandardMaterial({ color: 0x4f46e5, roughness: 0.4 });
+        const connMatGhost = new THREE.MeshStandardMaterial({ color: '#64748b', transparent: true, opacity: 0.4 });
+        const metalMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.8, roughness: 0.3 });
+        const darkMat = new THREE.MeshStandardMaterial({ color: 0x020617, roughness: 0.9 });
+
+        // Utilitaires
+        const getQuat = (x, y, z) => new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y, z, 'XYZ'));
+        function createTextPlane(message, color, size=24) {
+            const c = document.createElement('canvas'); const ctx = c.getContext('2d');
+            ctx.font = `Bold ${size}px sans-serif`; const w = ctx.measureText(message).width;
+            c.width = w + 40; c.height = size * 2.5; ctx.font = `Bold ${size}px sans-serif`;
+            ctx.fillStyle = "rgba(15,23,42,0.95)"; ctx.fillRect(0,0,c.width,c.height); ctx.fillStyle = color; ctx.fillRect(0,0,8,c.height);
+            ctx.fillStyle = "#ffffff"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(message, c.width/2, c.height/2 + 2);
+            return new THREE.Mesh(new THREE.PlaneGeometry(c.width * 0.2, c.height * 0.2), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true }));
+        }
+        function createConnector() {
+            const g = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(5, 5, 5), connMat); body.castShadow=true;
+            const screw = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 5.2, 12), metalMat); screw.rotation.x = Math.PI/2;
+            g.add(body, screw); return g;
+        }
+
+        // === SCÈNE COMMUNE : LE SOL DE L'ATELIER ET LA GRILLE ===
+        const gridHelper = new THREE.GridHelper(2000, 40, 0x334155, 0x1e293b); gridHelper.position.y = 0.05; scene.add(gridHelper);
+        const workshopFloor = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), new THREE.MeshStandardMaterial({color: 0x0f172a, roughness: 0.5}));
+        workshopFloor.rotation.x = -Math.PI/2; workshopFloor.receiveShadow = true; scene.add(workshopFloor);
+
+        // ═══════════════════════════════════════════════════════════
+        // ÉTAT 1 : L'ATELIER INTERACTIF (TOUS LES MEUBLES)
+        // ═══════════════════════════════════════════════════════════
+        const t = 1.8; // Épaisseur OSB
+        const deskH = 70.2;
+        
+        // Suivi de la construction pour débloquer les meubles dans la chambre
+        const builtStatus = { bureau: false, double_case: false, lit: false, etageres_murales: false };
+        
+        // Plans de construction pour TOUS les meubles
+        const blueprints = {
+            bureau: {
+                parts: [
+                    { type: 'leg', geo: [t, deskH, 60], pos: [-59.1, deskH/2, 0], quat: getQuat(0,0,0), flatQuat: getQuat(0,0,Math.PI/2) },
+                    { type: 'leg', geo: [t, deskH, 60], pos: [59.1, deskH/2, 0], quat: getQuat(0,0,0), flatQuat: getQuat(0,0,Math.PI/2) },
+                    { type: 'top', geo: [120, t, 60], pos: [0, deskH+t/2, 0], quat: getQuat(0,0,0), flatQuat: getQuat(0,0,0) },
+                    { type: 'back', geo: [55, deskH, t], pos: [-30.7, deskH/2, -29.1], quat: getQuat(0,0,0), flatQuat: getQuat(Math.PI/2,0,0) },
+                    { type: 'back', geo: [55, deskH, t], pos: [30.7, deskH/2, -29.1], quat: getQuat(0,0,0), flatQuat: getQuat(Math.PI/2,0,0) }
+                ],
+                connectors: [ [-59.1,70.9,27.5], [-59.1,70.9,-27.5], [59.1,70.9,27.5], [59.1,70.9,-27.5], [-45,70.9,-29.1], [-15,70.9,-29.1], [15,70.9,-29.1], [45,70.9,-29.1], [-59.1,60,-29.1], [-59.1,15,-29.1], [59.1,60,-29.1], [59.1,15,-29.1] ]
+            },
+            double_case: { // Deux cubes collés (2x1)
+                parts: [
+                    { type: 'panel_80_40', geo: [80, t, 40], pos: [0, t/2, 0], quat: getQuat(0,0,0), flatQuat: getQuat(0,0,0) },
+                    { type: 'panel_80_40', geo: [80, t, 40], pos: [0, 40+t/2, 0], quat: getQuat(0,0,0), flatQuat: getQuat(0,0,0) },
+                    { type: 'panel_40_40', geo: [t, 40, 40], pos: [-39.1, 20+t/2, 0], quat: getQuat(0,0,0), flatQuat: getQuat(0,0,Math.PI/2) },
+                    { type: 'panel_40_40', geo: [t, 40, 40], pos: [0, 20+t/2, 0], quat: getQuat(0,0,0), flatQuat: getQuat(0,0,Math.PI/2) },
+                    { type: 'panel_40_40', geo: [t, 40, 40], pos: [39.1, 20+t/2, 0], quat: getQuat(0,0,0), flatQuat: getQuat(0,0,Math.PI/2) }
+                ],
+                connectors: [ 
+                    [-39.1, 5, 15], [-39.1, 5, -15], [0, 5, 15], [0, 5, -15], [39.1, 5, 15], [39.1, 5, -15],
+                    [-39.1, 35, 15], [-39.1, 35, -15], [0, 35, 15], [0, 35, -15], [39.1, 35, 15], [39.1, 35, -15] 
+                ]
+            },
+            lit: { // Lit simple avec grande planche centrale au lieu des lattes
+                parts: [
+                    { type: 'long', geo: [200, t, 20], pos: [0, 30, 45], quat: getQuat(Math.PI/2,0,0), flatQuat: getQuat(0,0,0) },
+                    { type: 'long', geo: [200, t, 20], pos: [0, 30, -45], quat: getQuat(Math.PI/2,0,0), flatQuat: getQuat(0,0,0) },
+                    { type: 'short', geo: [t, 20, 90], pos: [-100, 30, 0], quat: getQuat(0,0,0), flatQuat: getQuat(0,0,Math.PI/2) },
+                    { type: 'short', geo: [t, 20, 90], pos: [100, 30, 0], quat: getQuat(0,0,0), flatQuat: getQuat(0,0,Math.PI/2) },
+                    // Pieds
+                    { type: 'foot', geo: [t, 30, 10], pos: [-95, 15, 40], quat: getQuat(0,Math.PI/2,0), flatQuat: getQuat(0,0,Math.PI/2) },
+                    { type: 'foot', geo: [t, 30, 10], pos: [-95, 15, -40], quat: getQuat(0,Math.PI/2,0), flatQuat: getQuat(0,0,Math.PI/2) },
+                    { type: 'foot', geo: [t, 30, 10], pos: [95, 15, 40], quat: getQuat(0,Math.PI/2,0), flatQuat: getQuat(0,0,Math.PI/2) },
+                    { type: 'foot', geo: [t, 30, 10], pos: [95, 15, -40], quat: getQuat(0,Math.PI/2,0), flatQuat: getQuat(0,0,Math.PI/2) },
+                    // Sommier (Grande planche unique)
+                    { type: 'sommier', geo: [196, t, 86], pos: [0, 30-t/2, 0], quat: getQuat(0,0,0), flatQuat: getQuat(0,0,0) }
+                ],
+                connectors: [
+                    [-100,30,45], [-100,30,-45], [100,30,45], [100,30,-45], // Coins cadre
+                    [-95,30,40], [-95,10,40], [-95,30,-40], [-95,10,-40], [95,30,40], [95,10,40], [95,30,-40], [95,10,-40] // Pieds
+                ]
+            },
+            etageres_murales: { // Deux rectangles adjacents
+                parts: [
+                    // Rectangle 1 (Gauche)
+                    { type: 'panel_80_30', geo: [80, t, 30], pos: [-40, t/2, 0], quat: getQuat(0,0,0), flatQuat: getQuat(0,0,0) },
+                    { type: 'panel_80_30', geo: [80, t, 30], pos: [-40, 40-t/2, 0], quat: getQuat(0,0,0), flatQuat: getQuat(0,0,0) },
+                    { type: 'panel_40_30', geo: [t, 40, 30], pos: [-80+t/2, 20, 0], quat: getQuat(0,0,0), flatQuat: getQuat(0,0,Math.PI/2) },
+                    { type: 'panel_40_30', geo: [t, 40, 30], pos: [-t/2, 20, 0], quat: getQuat(0,0,0), flatQuat: getQuat(0,0,Math.PI/2) },
+                    // Rectangle 2 (Droite, partageant le mur ou accolé au coin supérieur droit)
+                    // Pour simplifier et respecter l'alignement des rectangles Playwood: 2 cadres côte à côte
+                    { type: 'panel_80_30', geo: [80, t, 30], pos: [40, t/2, 0], quat: getQuat(0,0,0), flatQuat: getQuat(0,0,0) },
+                    { type: 'panel_80_30', geo: [80, t, 30], pos: [40, 40-t/2, 0], quat: getQuat(0,0,0), flatQuat: getQuat(0,0,0) },
+                    { type: 'panel_40_30', geo: [t, 40, 30], pos: [80-t/2, 20, 0], quat: getQuat(0,0,0), flatQuat: getQuat(0,0,Math.PI/2) }
+                ],
+                connectors: [
+                    // Connecteurs pour former les boîtes
+                    [-80, 5, 15], [-80, 5, -15], [0, 5, 15], [0, 5, -15], [80, 5, 15], [80, 5, -15],
+                    [-80, 35, 15], [-80, 35, -15], [0, 35, 15], [0, 35, -15], [80, 35, 15], [80, 35, -15]
+                ]
+            }
+        };
+
+        const pieces = []; const ghosts = []; const activeConnectors = [];
+        let currentBlueprint = null; let snappedCount = 0; let isBuildingComplete = false;
+        const raycaster = new THREE.Raycaster(); const mouse = new THREE.Vector2();
+        let selectedPiece = null; let isDragging = false; let dragHeight = 50;
+        const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -dragHeight);
+        const intersectionPoint = new THREE.Vector3();
+
+        // Ilyes le Mentor
+        const ilyes = new THREE.Group();
+        const iHead = new THREE.Mesh(new THREE.SphereGeometry(7, 32, 32), new THREE.MeshStandardMaterial({ color: '#ffb703' })); iHead.position.y = 35; iHead.castShadow = true;
+        const iBody = new THREE.Mesh(new THREE.CylinderGeometry(6, 8, 20, 32), new THREE.MeshStandardMaterial({ color: '#4f46e5' })); iBody.position.y = 20; iBody.castShadow = true;
+        ilyes.add(iHead, iBody); ilyes.position.set(-150, 0, -100); workshopGroup.add(ilyes); let ilyesJumping = false;
+
+        // UI Helpers
+        const statusIcon = document.getElementById('status-icon'); const actionText = document.getElementById('action-text');
+        const statusBox = document.getElementById('status-box'); const controlsPanel = document.getElementById('controls-panel');
+        const heightSlider = document.getElementById('height-slider'); const heightVal = document.getElementById('height-val');
+
+        function updateUIState(activeId, message, icon, type = 'info') {
+            document.querySelectorAll('.blueprint-btn').forEach(btn => { btn.classList.remove('border-indigo-400', 'bg-slate-700'); btn.classList.add('border-transparent'); });
+            if (activeId) { const activeBtn = document.getElementById(activeId); if (activeBtn) { activeBtn.classList.remove('border-transparent'); activeBtn.classList.add('border-indigo-400', 'bg-slate-700'); } }
+            actionText.innerHTML = message; statusIcon.innerText = icon;
+            statusBox.className = type === 'success' ? "glass-dark px-4 py-3 md:px-6 md:py-4 rounded-2xl flex items-center gap-3 transition-all duration-300 pointer-events-auto w-full max-w-lg bg-green-900/30 border-2 border-green-500/50" : "glass-dark px-4 py-3 md:px-6 md:py-4 rounded-2xl flex items-center gap-3 transition-all duration-300 pointer-events-auto w-full max-w-lg border-2 border-transparent";
+        }
+
+        window.deselectPiece = function() {
+            if (selectedPiece) {
+                selectedPiece.material = selectedPiece.userData.originalMaterial;
+                if (!selectedPiece.userData.isSnapped) { selectedPiece.userData.targetPos.y = 1.5; selectedPiece.userData.targetQuat.copy(selectedPiece.userData.flatQuat); }
+                selectedPiece = null; controlsPanel.classList.add('opacity-0', 'translate-y-10', 'pointer-events-none'); controlsPanel.classList.remove('opacity-100', 'translate-y-0', 'pointer-events-auto');
+            }
+        }
+        window.resetWorkshop = function() {
+            deselectPiece(); currentBlueprint = null; snappedCount = 0; isBuildingComplete = false;
+            updateUIState(null, "Sélectionnez un plan de meuble à assembler.", "🛠️");
+            pieces.forEach(p => workshopGroup.remove(p)); pieces.length = 0;
+            ghosts.forEach(g => workshopGroup.remove(g)); ghosts.length = 0;
+            activeConnectors.forEach(c => workshopGroup.remove(c)); activeConnectors.length = 0;
+        }
+        window.loadBlueprint = function(name) {
+            resetWorkshop(); currentBlueprint = blueprints[name];
+            updateUIState(`btn-${name}`, "Assemblez les pièces sur la silhouette bleue. Utilisez le curseur pour la hauteur.", "👆");
+            currentBlueprint.parts.forEach((part, index) => {
+                const geo = new THREE.BoxGeometry(part.geo[0], part.geo[1], part.geo[2]);
+                const ghost = new THREE.Mesh(geo, ghostMat); ghost.position.fromArray(part.pos); ghost.quaternion.copy(part.quat); ghost.userData = { type: part.type, isFilled: false };
+                ghost.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x818cf8, linewidth: 2 })));
+                workshopGroup.add(ghost); ghosts.push(ghost);
+                const piece = new THREE.Mesh(geo, osbMat); piece.castShadow = true; piece.receiveShadow = true;
+                const spawnX = (Math.random() - 0.5) * 200; const spawnZ = 50 + Math.random() * 100;
+                piece.position.set(spawnX, 1.5, spawnZ); piece.quaternion.copy(part.flatQuat);
+                piece.userData = { type: part.type, isSnapped: false, targetPos: new THREE.Vector3(spawnX, 1.5, spawnZ), targetQuat: part.flatQuat.clone(), flatQuat: part.flatQuat.clone(), originalMaterial: osbMat };
+                workshopGroup.add(piece); pieces.push(piece);
+            });
+            currentBlueprint.connectors.forEach(coord => { const c = new THREE.Mesh(new THREE.BoxGeometry(5, 5, 5), connMatGhost); c.position.fromArray(coord); workshopGroup.add(c); activeConnectors.push(c); });
+        }
+
+        function getMouseCoords(event) {
+            let clientX = event.clientX; let clientY = event.clientY;
+            if(event.changedTouches && event.changedTouches.length > 0) { clientX = event.changedTouches[0].clientX; clientY = event.changedTouches[0].clientY; }
+            mouse.x = (clientX / window.innerWidth) * 2 - 1; mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+        }
+        function selectPiece(piece) {
+            if (selectedPiece && selectedPiece !== piece && !selectedPiece.userData.isSnapped) window.deselectPiece();
+            selectedPiece = piece; selectedPiece.material = selectedMat;
+            dragHeight = Math.max(piece.position.y, 40); dragPlane.constant = -dragHeight; piece.userData.targetPos.y = dragHeight;
+            heightSlider.value = dragHeight; heightVal.innerText = Math.round(dragHeight);
+            controlsPanel.classList.remove('opacity-0', 'translate-y-10', 'pointer-events-none'); controlsPanel.classList.add('opacity-100', 'translate-y-0', 'pointer-events-auto');
+            if (currentBlueprint) { const availableGhost = ghosts.find(g => !g.userData.isFilled && g.userData.type === selectedPiece.userData.type); if (availableGhost) selectedPiece.userData.targetQuat.copy(availableGhost.quaternion); }
+        }
+        function checkSnap(piece) {
+            if (!currentBlueprint || piece.userData.isSnapped) return false;
+            for (let ghost of ghosts) {
+                if (!ghost.userData.isFilled && ghost.userData.type === piece.userData.type) {
+                    const dist = piece.userData.targetPos.distanceTo(ghost.position);
+                    if (dist < 30) {
+                        piece.userData.isSnapped = true; piece.userData.targetPos.copy(ghost.position); piece.userData.targetQuat.copy(ghost.quaternion);
+                        ghost.userData.isFilled = true; ghost.visible = false; snappedCount++; ilyesJumping = true; setTimeout(() => { ilyesJumping = false; }, 800); window.deselectPiece();
+                        if (snappedCount === ghosts.length && !isBuildingComplete) {
+                            isBuildingComplete = true; activeConnectors.forEach(c => { c.material = connMat; c.scale.set(0.1, 0.1, 0.1); c.userData.targetScale = 1.2; });
+                            const planKey = Object.keys(blueprints).find(key => blueprints[key] === currentBlueprint);
+                            
+                            // Mémoriser que le meuble est construit
+                            builtStatus[planKey] = true;
+
+                            updateUIState(`btn-${planKey}`, "<strong>Meuble terminé !</strong> Passez au suivant ou allez voir le résultat dans la chambre (État 2).", "🎉", "success");
+                            ilyesJumping = true; setTimeout(() => { ilyesJumping = false; }, 4000);
+                        }
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        container.addEventListener('pointerdown', (event) => { if(currentState !== 1) return; getMouseCoords(event); raycaster.setFromCamera(mouse, camera); const intersects = raycaster.intersectObjects(pieces.filter(p => !p.userData.isSnapped)); if (intersects.length > 0) { controls.enabled = false; isDragging = true; selectPiece(intersects[0].object); } else { if (!isDragging) window.deselectPiece(); } });
+        container.addEventListener('pointermove', (event) => { if (currentState !== 1 || !selectedPiece || !isDragging) return; getMouseCoords(event); raycaster.setFromCamera(mouse, camera); raycaster.ray.intersectPlane(dragPlane, intersectionPoint); if (intersectionPoint) { selectedPiece.userData.targetPos.x = intersectionPoint.x; selectedPiece.userData.targetPos.z = intersectionPoint.z; checkSnap(selectedPiece); } });
+        window.addEventListener('pointerup', () => { isDragging = false; controls.enabled = true; if (selectedPiece && currentState === 1) checkSnap(selectedPiece); });
+        heightSlider.addEventListener('input', (event) => { if (selectedPiece && !selectedPiece.userData.isSnapped) { dragHeight = parseFloat(event.target.value); heightVal.innerText = Math.round(dragHeight); dragPlane.constant = -dragHeight; selectedPiece.userData.targetPos.y = dragHeight; checkSnap(selectedPiece); } });
+
+        // ═══════════════════════════════════════════════════════════
+        // ÉTAT 2 : MISE EN PLACE CHAMBRE (TOUS LES MEUBLES COMPLETS)
+        // ═══════════════════════════════════════════════════════════
+        const roomOffsetX = -250, roomOffsetZ = -150;
+        const rFloor = new THREE.Mesh(new THREE.PlaneGeometry(370, 380), floorMat); rFloor.rotation.x = -Math.PI/2; rFloor.position.set(185, 0.2, 190); rFloor.receiveShadow=true;
+        const rWallL = new THREE.Mesh(new THREE.PlaneGeometry(380, 240), wallMat); rWallL.rotation.y = Math.PI/2; rWallL.position.set(0, 120, 190); rWallL.receiveShadow=true;
+        const rWallB = new THREE.Mesh(new THREE.PlaneGeometry(370, 240), wallMat); rWallB.position.set(185, 120, 0); rWallB.receiveShadow=true;
+        roomGroupState.add(rFloor, rWallL, rWallB); roomGroupState.position.set(roomOffsetX, 0, roomOffsetZ);
+
+        // Fonction pour créer un meuble complet statique à partir de son blueprint
+        function createStaticFurniture(blueprint) {
+            const group = new THREE.Group();
+            blueprint.parts.forEach(part => { const mesh = new THREE.Mesh(new THREE.BoxGeometry(part.geo[0], part.geo[1], part.geo[2]), osbMat); mesh.position.fromArray(part.pos); mesh.quaternion.copy(part.quat); mesh.castShadow=true; group.add(mesh); });
+            blueprint.connectors.forEach(pos => { const c = createConnector(); c.position.fromArray(pos); group.add(c); });
+            return group;
+        }
+        // Placement des meubles dans la chambre
+        const finalBureau = createStaticFurniture(blueprints.bureau); finalBureau.position.set(240, 0, 40); roomGroupState.add(finalBureau);
+        const finalCase = createStaticFurniture(blueprints.double_case); finalCase.position.set(300, 0, 150); finalCase.rotation.y = -Math.PI/2; roomGroupState.add(finalCase);
+        const finalLit = createStaticFurniture(blueprints.lit); finalLit.position.set(120, 0, 260); finalLit.rotation.y = Math.PI/2; roomGroupState.add(finalLit);
+        const mattress = new THREE.Mesh(new THREE.BoxGeometry(196, 12, 86), new THREE.MeshStandardMaterial({color:0xe2e8f0})); mattress.position.set(120, 30+t+6, 260); mattress.rotation.y = Math.PI/2; mattress.castShadow=true; roomGroupState.add(mattress);
+        const finalEtageres = createStaticFurniture(blueprints.etageres_murales); finalEtageres.position.set(200, 100, -5); roomGroupState.add(finalEtageres); // Placé au mur du fond
+
+        // Masquer les meubles par défaut (ils doivent être construits d'abord)
+        finalBureau.visible = false;
+        finalCase.visible = false;
+        finalLit.visible = false;
+        mattress.visible = false;
+        finalEtageres.visible = false;
+
+        // ═══════════════════════════════════════════════════════════
+        // ÉTAT 3 : BILAN MATÉRIEL (CALCUL DES TOTAUX)
+        // ═══════════════════════════════════════════════════════════
+        let totalPlanches = 0; let totalConnecteurs = 0;
+        Object.values(blueprints).forEach(bp => { totalPlanches += bp.parts.length; totalConnecteurs += bp.connectors.length; });
+
+        // Représentation visuelle du bilan
+        const pilePlanches = new THREE.Group();
+        for(let i=0; i<totalPlanches; i++) { const p = new THREE.Mesh(new THREE.BoxGeometry(60 + Math.random()*40, t, 40 + Math.random()*20), osbMat); p.position.set(0, i*(t+0.2), 0); p.rotation.y = Math.random()*0.2; p.castShadow=true; pilePlanches.add(p); }
+        pilePlanches.position.set(-50, 0, 0);
+        
+        const pileConnecteurs = new THREE.Group();
+        for(let i=0; i<totalConnecteurs; i++) { const c = createConnector(); c.position.set(Math.random()*40, Math.random()*10, Math.random()*40); c.rotation.set(Math.random(), Math.random(), Math.random()); pileConnecteurs.add(c); }
+        pileConnecteurs.position.set(50, 0, 0);
+        
+        const textPlanches = createTextPlane(`TOTAL PLANCHES : ${totalPlanches}`, "#818cf8", 30); textPlanches.position.set(-50, totalPlanches*t + 20, 0);
+        const textConnecteurs = createTextPlane(`TOTAL CONNECTEURS : ${totalConnecteurs}`, "#4f46e5", 30); textConnecteurs.position.set(50, 25, 0);
+        const textBilanTitre = createTextPlane("BILAN MATÉRIEL CHAMBRE RRR", "#ffffff", 40); textBilanTitre.position.set(0, 100, -50);
+
+        materialGroupState.add(pilePlanches, pileConnecteurs, textPlanches, textConnecteurs, textBilanTitre);
+        materialGroupState.position.set(300, 0, -300);
+
+        // ═══════════════════════════════════════════════════════════
+        // GESTIONNAIRE D'ÉTATS GLOBAUX & TRANSITION CAMÉRA
+        // ═══════════════════════════════════════════════════════════
+        let currentState = 1; 
+        let isTransitioningCam = false;
+        const interactiveUI = document.getElementById('interactive-ui');
+        
+        window.setState = function(s) {
+            currentState = s; document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById('btn-state-'+s).classList.add('active');
+            if(s === 1) { interactiveUI.classList.remove('hidden'); setTimeout(() => interactiveUI.classList.remove('opacity-0'), 10); } else { interactiveUI.classList.add('opacity-0'); setTimeout(() => interactiveUI.classList.add('hidden'), 500); window.deselectPiece(); }
+            
+            // Apparition dynamique des meubles construits dans l'État 2
+            if (s === 2) {
+                finalBureau.visible = builtStatus.bureau;
+                finalCase.visible = builtStatus.double_case;
+                finalLit.visible = builtStatus.lit;
+                mattress.visible = builtStatus.lit;
+                finalEtageres.visible = builtStatus.etageres_murales;
+            }
+
+            workshopGroup.visible = (s === 1); roomGroupState.visible = (s === 2); materialGroupState.visible = (s === 3);
+            
+            // Définir les cibles de la caméra
+            if (s === 1) { targetCamPos.set(0, 200, 350); targetLookAt.set(0, 50, 0); }
+            else if (s === 2) { targetCamPos.set(roomOffsetX+300, 300, roomOffsetZ+400); targetLookAt.set(roomOffsetX+185, 50, roomOffsetZ+150); }
+            else if (s === 3) { targetCamPos.set(300, 150, -100); targetLookAt.set(300, 40, -300); }
+            
+            isTransitioningCam = true; // Activer le LERP de transition
+        };
+        
+        setState(1); 
+        camera.position.copy(targetCamPos); controls.target.copy(targetLookAt); controls.update(); 
+        document.getElementById('loading').style.display = 'none';
+
+        // Stoppe la transition automatique si l'utilisateur interagit avec la scène (Drag Caméra)
+        controls.addEventListener('start', () => { isTransitioningCam = false; });
+
+        // ═══════════════════════════════════════════════════════════
+        // BOUCLE D'ANIMATION
+        // ═══════════════════════════════════════════════════════════
+        const clock = new THREE.Clock(); let time = 0;
+        function animate() {
+            requestAnimationFrame(animate); const delta = clock.getDelta(); time += delta;
+            
+            // Ne déplacer la caméra automatiquement que lors d'une transition entre onglets
+            if (isTransitioningCam) {
+                camera.position.lerp(targetCamPos, 0.05); 
+                controls.target.lerp(targetLookAt, 0.05);
+                if (camera.position.distanceTo(targetCamPos) < 2.0 && controls.target.distanceTo(targetLookAt) < 2.0) {
+                    isTransitioningCam = false;
+                }
+            }
+            controls.update(); // OrbitControls fonctionne sans conflit
+
+            pieces.forEach(piece => { const lerpSpeed = piece.userData.isSnapped ? 0.2 : 0.15; piece.position.lerp(piece.userData.targetPos, lerpSpeed); piece.quaternion.slerp(piece.userData.targetQuat, lerpSpeed); });
+            if (isBuildingComplete) { activeConnectors.forEach(c => { if (c.scale.x < c.userData.targetScale) c.scale.addScalar(0.08); else if (c.scale.x > 1.0) { c.userData.targetScale = 1.0; c.scale.addScalar(-0.02); } }); }
+            if (ilyesJumping) { ilyes.position.y = Math.abs(Math.sin(time * 10)) * 20; ilyes.rotation.y += 0.1; } else { ilyes.position.y += (0 - ilyes.position.y) * 0.1; const targetRot = Math.atan2(0 - ilyes.position.x, 0 - ilyes.position.z); ilyes.rotation.y += (targetRot - ilyes.rotation.y) * 0.1; }
+            renderer.render(scene, camera);
+        }
+        window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+        animate();
+    </script>
+</body>
+</html>
